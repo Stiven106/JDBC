@@ -1,42 +1,62 @@
 package test;
 
+import datos.Conexion;
 import datos.PersonaDAO;
 import domain.Persona;
 
+import java.sql.*;
 import java.util.List;
 
 public class TestManejoPersonas {
     public static void main(String[] args) {
-        PersonaDAO personaDao = new PersonaDAO();
 
-        // Insertando un nuevo objeto de tipo Persona
-        /* Persona personaNueva = new Persona("Carlos", "Esparza", "carlosEzp@mail.com",
-                "3045809238"); // Constructor sin idPersona, ya que como es un insert, este parametro se ingresa en automatico.
-        personaDao.insertar(personaNueva);*/ // No hay necesidad de crear un nuevo objeto de personaDao, si no que podemos reutilizar el que creamos al principio de esta clase.
+        // Connection debe estar declarado fuera del try catch, para utilizar la conexion.rollback en el catch
+        Connection conexion = null;
 
-        // Modificar un objeto de persona existente, o sea, un registro.
-        /*Persona personaModificar = new Persona(2, "Oscar", "Perez", "Oscar2020@mail.com",
-                "3203101020"); // Todos los argumentos, ya que tenemos que indicar el id_persona que queremos modificar.
-        personaDao.actualizar(personaModificar);*/
+        try {
+            conexion = Conexion.getConnection();
 
-        // Eliminar un registro
-        Persona personaEliminar = new Persona(1);
-        personaDao.eliminar(personaEliminar);
+            // Revisar si esta en manejo autocommit
+            if(conexion.getAutoCommit()) {
+                conexion.setAutoCommit(false);
+                /*
+                Con el autocommit al terminar de ejecutar una sentencia, en automatico se guardan los cambios. En este caso lo que queremos es
+                que apenas cuando se haga commit de toda la transaccion se guarden los cambios. Por eso lo dejamos en false.
+                 */
+            }
+            PersonaDAO personaDao = new PersonaDAO(conexion);
 
+            Persona cambioPersona = new Persona();
+            cambioPersona.setIdPersona(3);
+            cambioPersona.setNombre("Kiel carlos");
+            cambioPersona.setApellido("Gomez");
+            cambioPersona.setEmail("kgomez@mail.com");
+            cambioPersona.setTelefono("323121234");
+            personaDao.actualizar(cambioPersona);
 
-        // Listado Persona: Recuperaremos la informacion de el metodo seleccionar():
+            Persona nuevaPersona = new Persona();
+            nuevaPersona.setNombre("Carlos");
+            // Agregamos un fallo en el siguiente insert aproposito, para probar la funcion del rollback. Excede varchar(45)
+            /*nuevaPersona.setApellido("Ramirezzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz");*/
+            // Se valido el funcionamiento del rollback, ahora con un apellido valido:
+            nuevaPersona.setApellido("Ramirez");
+            personaDao.insertar(nuevaPersona);
 
-        List<Persona> personas = personaDao.seleccionar();
+            // Hacemos el commit para que la transaccion se guarde en la BD
+            conexion.commit();
+            System.out.println("Se ha hecho commit de la transaccion");
 
-        // Para imprimir recuerda que es con un forEach o funcion lambda
-        for (Persona persona: personas) {
-            System.out.println("persona = " + persona);
+        } catch (SQLException ex) {
+            ex.printStackTrace(System.out);
+            System.out.println("Entramos al rollback"   );
+            try {
+                conexion.rollback();
+            } catch (SQLException ex1) {
+                ex1.printStackTrace(System.out);
+            }
+
         }
 
-        /*
-        Funcion lambda:
-        personas.stream().map(persona -> "persona = " + persona).forEach(System.out::println);
-         */
 
     }
 
